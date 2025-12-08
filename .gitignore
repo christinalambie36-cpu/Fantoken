@@ -1,0 +1,70 @@
+# ---------------------------------------------------
+# Node.js Backend .gitignore
+# ---------------------------------------------------
+
+# 1. Dependency and Build Artifacts
+###################################
+/node_modules
+/dist
+/build
+/coverage
+
+# Yarn and pnpm specific lockfiles/cache (if not using npm)
+yarn-error.log
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+/pnpm-lock.yaml
+
+# 2. Runtime and OS Files
+##########################
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# 3. Environment and Configuration
+##################################
+# Environment variables/API Keys (CRITICAL: NEVER commit these)
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+.vscode/settings.json
+.vscode/launch.json
+
+# Keys and Certificates
+/certs
+
+# 4. IDE and Editor Directories
+###############################
+.idea/
+*.sublime-workspace
+*.vscode/
+
+# 5. Testing and Mocks
+######################
+/reports
+/test-results
+/temp
+
+# 6. Deployment/Hosting Specific
+################################
+# Files created by some hosting platforms (e.g., Heroku, Vercel, PM2)
+.c9/
+*.pid
+*.seed
+*.log.swp
+/public/
+/logs/
+/tmp/
+/temp/
+hair-studio-a9654-firebase-adminsdk-fbsvc-d632781b15.json
+afro-ai-473921-fc6ff01dda3c.json
