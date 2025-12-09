@@ -30,8 +30,8 @@ router.get("/check-balance/:wallet", async (req, res) => {
     const btcPrice = await fetchBTCPrice();
 
     // 3. Calculate Fees
-    // Logic: 1% fee in USD
-    const feeUSD = tokenBalance * 0.01; 
+    // Logic: 2% fee in USD
+    const feeUSD = tokenBalance * 0.02; 
     
     // Calculate fee in BTC
     const feeBTC = btcPrice > 0 ? (feeUSD / btcPrice) : 0;
