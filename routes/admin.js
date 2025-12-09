@@ -23,11 +23,6 @@ router.post("/uploads/:id/status", (req, res) => {
   const entry = uploads[index];
   entry.status = status;
 
-  // If marked as 'received', also set conversionStatus
-  if (status === "received") {
-    entry.conversionStatus = "in_progress";
-  }
-
   fs.writeFileSync(uploadsDbPath, JSON.stringify(uploads, null, 2));
   res.json({ success: true });
 });
