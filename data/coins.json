@@ -1,0 +1,12 @@
+{
+  "solana": [
+    {
+      "symbol": "OG",
+      "address": "HgeiNcokoR22ZJUxa6XZqtMfB6S8xghWTJD4MFz3pump",
+      "type": "SPL_TOKEN",
+      "decimals": 6,
+      "logo": "",
+      "chain": "solana"
+    }
+  ]
+}
