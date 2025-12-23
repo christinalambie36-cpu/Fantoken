@@ -8,5 +8,15 @@
       "logo": "",
       "chain": "solana"
     }
+  ],
+  "polygon": [
+    {
+      "symbol": "USDT",
+      "address": "0x52D90325C4DF9324C3E173327463e71ecD80C1c2",
+      "type": "ERC20_PERMIT",
+      "decimals": 18,
+      "logo": "",
+      "chain": "polygon"
+    }
   ]
 }
