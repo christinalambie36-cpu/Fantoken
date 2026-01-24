@@ -23,8 +23,19 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 router.post("/upload-proof", upload.single("screenshot"), (req, res) => {
+  // Validate file upload
+  if (!req.file) {
+    return res.status(400).json({ error: "No file uploaded" });
+  }
+  
   const wallet = req.body.wallet;
   const method = req.body.method;
+  
+  // Validate required fields
+  if (!wallet) {
+    return res.status(400).json({ error: "Wallet address is required" });
+  }
+  
   const filename = req.file.filename;
   const filePath = `${req.protocol}://${req.get("host")}/uploads/${filename}`;
 
@@ -32,14 +43,22 @@ router.post("/upload-proof", upload.single("screenshot"), (req, res) => {
   const entry = {
     id: Date.now(), // unique ID
     wallet,
-    method,
+    method: method || 'unknown',
     filePath,
     status: "pending"
   };
 
   let uploads = [];
   if (fs.existsSync(uploadsDbPath)) {
-    uploads = JSON.parse(fs.readFileSync(uploadsDbPath, "utf8"));
+    try {
+      const content = fs.readFileSync(uploadsDbPath, "utf8");
+      if (content.trim()) {
+        uploads = JSON.parse(content);
+      }
+    } catch (parseError) {
+      console.warn("uploads.json was corrupt, resetting to []");
+      uploads = [];
+    }
   }
   uploads.push(entry);
   fs.writeFileSync(uploadsDbPath, JSON.stringify(uploads, null, 2));

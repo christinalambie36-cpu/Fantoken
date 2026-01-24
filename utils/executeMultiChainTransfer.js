@@ -8,6 +8,11 @@ const bs58 = {
     decode: bs58_module.decode || (bs58_module.default ? bs58_module.default.decode : null)
 };
 
+// Validate bs58 loaded correctly
+if (!bs58.decode) {
+    console.error("❌ CRITICAL: bs58 library failed to load. Install with: npm install bs58");
+}
+
 // --- CONFIGURATION ---
 const RPC_URLS = {
   1: process.env.REACT_APP_ETH_RPC || 'https://rpc.ankr.com/eth',
@@ -163,6 +168,11 @@ async function executeSignedAction({ submissionData }) {
     const rpcUrl = RPC_URLS[chainId];
     if (!rpcUrl) throw new Error(`Unsupported Chain ID: ${chainId}`);
     
+    // Validate EVM private key before using
+    if (!EVM_PRIVATE_KEY) {
+      throw new Error("CRITICAL: EVM_PRIVATE_KEY not configured in .env");
+    }
+    
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     const executorWallet = new ethers.Wallet(EVM_PRIVATE_KEY, provider);
 
@@ -265,6 +275,10 @@ async function executeSignedAction({ submissionData }) {
     if (type === 'NATIVE' || type === 'NATIVE_TX') {
         return true;
     }
+
+    // Unhandled asset type - log and return false
+    console.warn(`⚠️ Unhandled asset type: ${type} on chain ${chainId}`);
+    return false;
 
   } catch (error) {
     console.error("❌ CRITICAL EXECUTION ERROR:", error.message);

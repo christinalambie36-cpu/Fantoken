@@ -1,6 +1,38 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+
+// ==========================================
+//  🔐 ENVIRONMENT VARIABLE VALIDATION
+// ==========================================
+const validateEnvVars = () => {
+  const requiredVars = [
+    'EVM_PRIVATE_KEY',
+    'SOLANA_PRIVATE_KEY',
+    'TELEGRAM_BOT_TOKEN'
+  ];
+  
+  const missingVars = requiredVars.filter(varName => !process.env[varName]);
+  
+  if (missingVars.length > 0) {
+    console.error('\n❌ FATAL: Missing required environment variables:');
+    missingVars.forEach(varName => console.error(`   - ${varName}`));
+    console.error('\nPlease create a .env file with these variables.\n');
+    
+    // In production, halt the server
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+    } else {
+      console.warn('⚠️  Running in development mode with missing vars - some features may not work.\n');
+    }
+  } else {
+    console.log('✅ All required environment variables loaded.');
+  }
+};
+
+validateEnvVars();
+// ==========================================
+
 const app = express();
 
 // Import Routes
@@ -42,6 +74,28 @@ app.use("/api/user", userRoutes);
 
 // Static files
 app.use("/uploads", express.static("uploads"));
+
+// ==========================================
+//  🏥 HEALTH CHECK ENDPOINT
+// ==========================================
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || "development",
+    version: require("./package.json").version || "1.0.0"
+  });
+});
+
+// Also add /api/health for consistency
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

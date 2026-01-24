@@ -1,0 +1,17 @@
+{
+  "campaign": {
+    "name": "BANDIT Airdrop",
+    "token": {
+      "symbol": "BNT",
+      "address": "2dj9EhzN8YZ7YSYQKspRAzdB5sWNEkUsRa5Pm1AQbSGT",
+      "network": "solana",
+      "amountPerUser": 50000
+    },
+    "totalPool": 500000000,
+    "distributed": 0,
+    "startDate": "2026-01-24T00:00:00.000Z",
+    "endDate": "2026-12-31T23:59:59.000Z",
+    "status": "active"
+  },
+  "participants": []
+}

