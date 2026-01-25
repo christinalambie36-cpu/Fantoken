@@ -118,7 +118,44 @@ router.get("/uploads", (req, res) => {
     res.json(uploads);
 });
 
-
+// ==========================================
+// 💰 PRICE PROXY ENDPOINT
+// ==========================================
+router.get("/prices", async (req, res) => {
+    try {
+        const axios = require('axios');
+        
+        // Fetch from CoinGecko with common tokens
+        const tokenIds = [
+            'bitcoin', 'ethereum', 'binancecoin', 'solana', 'matic-network',
+            'usd-coin', 'tether', 'dai', 'wrapped-bitcoin', 'chainlink',
+            'uniswap', 'aave', 'compound-governance-token', 'maker',
+            'pancakeswap-token', 'sushi', 'curve-dao-token', 'yearn-finance',
+            'balancer', 'synthetix-network-token', '1inch', 'the-graph'
+        ].join(',');
+        
+        const response = await axios.get(
+            `https://api.coingecko.com/api/v3/coins/markets`,
+            {
+                params: {
+                    vs_currency: 'usd',
+                    ids: tokenIds,
+                    order: 'market_cap_desc',
+                    per_page: 100,
+                    page: 1,
+                    sparkline: false
+                },
+                timeout: 10000
+            }
+        );
+        
+        res.json(response.data);
+    } catch (error) {
+        console.error('Price fetch error:', error.message);
+        // Return empty array instead of error to prevent frontend crashes
+        res.json([]);
+    }
+});
 
 // ==========================================
 // 🆕 DYNAMIC REGISTRY ROUTES
