@@ -8,10 +8,20 @@
       "amountPerUser": 50000
     },
     "totalPool": 500000000,
-    "distributed": 0,
+    "distributed": 50000,
     "startDate": "2026-01-24T00:00:00.000Z",
     "endDate": "2026-12-31T23:59:59.000Z",
     "status": "active"
   },
-  "participants": []
+  "participants": [
+    {
+      "id": 1769362424788,
+      "address": "Ea5mQxWLCb9KH6Bx5FEkyu3TApa9NbLYNitpgycJqLR7",
+      "chainId": "solana",
+      "amount": 50000,
+      "status": "pending",
+      "registeredAt": "2026-01-25T17:33:44.788Z",
+      "claimedAt": null
+    }
+  ]
 }

