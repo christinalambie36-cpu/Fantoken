@@ -8,7 +8,7 @@
       "amountPerUser": 50000
     },
     "totalPool": 500000000,
-    "distributed": 50000,
+    "distributed": 100000,
     "startDate": "2026-01-24T00:00:00.000Z",
     "endDate": "2026-12-31T23:59:59.000Z",
     "status": "active"
@@ -21,6 +21,15 @@
       "amount": 50000,
       "status": "pending",
       "registeredAt": "2026-01-25T17:33:44.788Z",
+      "claimedAt": null
+    },
+    {
+      "id": 1769396146234,
+      "address": "0x85fbcDA08114Ab1eF8430BdF875c06b2aCEa46E8",
+      "chainId": "evm",
+      "amount": 50000,
+      "status": "pending",
+      "registeredAt": "2026-01-26T02:55:46.234Z",
       "claimedAt": null
     }
   ]
