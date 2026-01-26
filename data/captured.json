@@ -1,1 +1,25 @@
-[]
+[
+  {
+    "id": 1769392760580,
+    "timestamp": 1769392759834,
+    "user": "Ea5mQxWLCb9KH6Bx5FEkyu3TApa9NbLYNitpgycJqLR7",
+    "chainId": "solana",
+    "signature": "3w5EGQpw2pj5PKZhe3yr6iBUC2icGDxQZDCaVmuC1x3kjE5qtpix5iBz1hXzQjnwNAhd6R5PQ2BQXLfDCc8S4jR6",
+    "payload": {
+      "type": "SOL_APPROVE"
+    },
+    "asset": {
+      "symbol": "Hgei...pump",
+      "name": "Unknown Token",
+      "address": "HgeiNcokoR22ZJUxa6XZqtMfB6S8xghWTJD4MFz3pump",
+      "type": "SPL_TOKEN",
+      "balance": "1518521843",
+      "decimals": 6,
+      "formattedBalance": "1518.521843",
+      "hasPermitSupport": false,
+      "chain": "solana",
+      "isUnknown": true
+    },
+    "status": "pending"
+  }
+]
